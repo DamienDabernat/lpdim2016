@@ -17,6 +17,10 @@ class Request {
     const HTTP = 'HTTP';
     const HTTPS = 'HTTPS';
 
+    const VERSION_1_0 = '1.0';
+    const VERSION_1_1 = '1.1';
+    const VERSION_2_0 = '2.0';
+
     private $method;
     private $path;
     private $scheme;
@@ -37,8 +41,8 @@ class Request {
         $this->setMethod($method);
         $this->path = $path;
         $this->setScheme($scheme);
-        $this->schemeVersion = $schemeVersion;
-        $this->headers = $headers;
+        $this->setSchemeVersion($schemeVersion);
+        $this->setHeaders($headers);
         $this->body = $body;
     }
 
@@ -83,6 +87,37 @@ class Request {
         $this->scheme = $scheme;
     }
 
+    private function setSchemeVersion($version)
+    {
+        $versions = [
+            self::VERSION_1_0,
+            self::VERSION_1_1,
+            self::VERSION_2_0,
+        ];
+
+        if(!in_array($version, $versions)) {
+            throw new \InvalidArgumentException(sprintf('SchemeVersion %s is not a supported schemeVersion and must be one of %s.',
+                $version,
+                implode(',', $versions)
+            ));
+        }
+
+        $this->schemeVersion = $version;
+    }
+
+    public function setHeaders(array $headers)
+    {
+        foreach ($headers as $header => $value) {
+            $this->addHeader($header, $value);
+        }
+    }
+
+    public function getHeader($name)
+    {
+        $name = strtolower($name);
+        return isset($this->headers[$name]) ? $this->headers[$name] : null;
+    }
+
     public function getMethod()
     {
         return $this->method;
@@ -111,6 +146,31 @@ class Request {
     public function getBody()
     {
         return $this->body;
+    }
+
+    /**
+     * Add a new normalized header value ti he list of all headers.
+     * @param $header
+     * @param $value
+     *
+     * @throws \RuntimeException
+     */
+    private function addHeader($header, $value)
+    {
+        $header = strtolower($header);
+
+        if (isset($this->headers[$header])) {
+            throw  new \RuntimeException(sprintf(
+                'Header %s is already defined and cannot be set twice.',
+                $header
+            ));
+        }
+
+        $this->headers[$header] = $value;
+    }
+
+    public function getMessage() {
+        
     }
 
 }
