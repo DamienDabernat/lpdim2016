@@ -1,0 +1,24 @@
+{
+  "name": "ddabernat/lpdim2016",
+  "description": "Another PHP microframework",
+  "type": "library",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Damien Dabernat",
+      "email": "damien.dabernat@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "": "tests/"
+    }
+  },
+  "minimum-stability": "alpha",
+  "require": {}
+}
