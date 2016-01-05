@@ -1,5 +1,7 @@
 <?php
 
+namespace Framework\Http;
+
 class Request {
 
     const GET = 'GET';
@@ -10,6 +12,7 @@ class Request {
     const TRACE = 'TRACE';
     const HEAD = 'HEAD';
     const DELETE = 'DELETE';
+    const CONNECT = 'CONNECT';
 
     const HTTP = 'HTTP';
     const HTTPS = 'HTTPS';
@@ -31,12 +34,36 @@ class Request {
      */
     public function __construct($method, $path, $scheme, $schemeVersion, array $headers = [], $body = '')
     {
-        $this->method = $method;
+        $this->setMethod($method);
         $this->path = $path;
         $this->scheme = $scheme;
         $this->schemeVersion = $schemeVersion;
         $this->headers = $headers;
         $this->body = $body;
+    }
+
+    private function setMethod($method)
+    {
+        $methods = [
+            self::GET,
+            self::POST,
+            self::PUT,
+            self::PATCH,
+            self::OPTION,
+            self::TRACE,
+            self::HEAD,
+            self::DELETE,
+            self::CONNECT,
+        ];
+
+        if(!in_array($method, $methods)) {
+            throw new \InvalidArgumentException(sprintf('Method %s is not a supported HTTP method and must be one of %s.',
+                $method,
+                implode(',', $methods)
+            ));
+        }
+
+        $this->method = $method;
     }
 
     public function getMethod()
