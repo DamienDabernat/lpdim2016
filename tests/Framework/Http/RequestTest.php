@@ -5,6 +5,54 @@ use Framework\Http\Request;
 class RequestTest extends \PHPUnit_Framework_TestCase
 {
 
+    public function testCreateFromMessage()
+    {
+        $message = <<<MESSAGE
+GET /fr/article/42 HTTP/1.1
+host: http://wikipedia.com
+user-agent: Mozilla/Firefox
+accept: text/plain, text/html
+
+{"foo": "bar"}
+MESSAGE;
+
+        $request = Request::createFromMessage($message);
+
+        $this->assertInstanceOf(Request::class, $request);
+        $this->assertSame($message, $request->getMessage());
+        $this->assertSame($message, (string) $request);
+    }
+
+    public function testGetPrologue()
+    {
+        $request = new Request('GET', '/', 'HTTP', '1.1');
+        $this->assertSame(sprintf('%s %s %s/%s',
+            $request->getMethod(), $request->getPath(), $request->getScheme(), $request->getSchemeVersion()), $request->getPrologue());
+        $this->assertSame("GET / HTTP/1.1", $request->getPrologue());
+    }
+
+    public function testGetMessage()
+    {
+        $message = <<<MESSAGE
+GET /fr/article/42 HTTP/1.1
+host: http://wikipedia.com
+user-agent: Mozilla/Firefox
+accept: text/plain, text/html
+
+{"foo": "bar"}
+MESSAGE;
+
+        $body = '{"foo": "bar"}';
+        $request = new Request('GET', '/fr/article/42', Request::HTTP, Request::VERSION_1_1, [
+            'Host' => 'http://wikipedia.com',
+            'User-Agent' => 'Mozilla/Firefox',
+            'Accept' => 'text/plain, text/html',
+        ], $body);
+
+        $this->assertSame($message, $request->getMessage());
+        $this->assertSame($message, (string) $request);
+    }
+
     /**
      * @expectedException  \RuntimeException
      */
