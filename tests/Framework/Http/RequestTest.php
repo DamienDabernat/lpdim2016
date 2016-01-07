@@ -23,13 +23,6 @@ MESSAGE;
         $this->assertSame($message, (string) $request);
     }
 
-    public function testGetPrologue()
-    {
-        $request = new Request('GET', '/', 'HTTP', '1.1');
-        $this->assertSame(sprintf('%s %s %s/%s',
-            $request->getMethod(), $request->getPath(), $request->getScheme(), $request->getSchemeVersion()), $request->getPrologue());
-        $this->assertSame("GET / HTTP/1.1", $request->getPrologue());
-    }
 
     public function testGetMessage()
     {

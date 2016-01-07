@@ -2,31 +2,11 @@
 
 namespace Framework\Http;
 
-class Request {
-
-    const GET = 'GET';
-    const POST = 'POST';
-    const PUT = 'PUT';
-    const PATCH = 'PATCH';
-    const OPTION = 'OPTION';
-    const TRACE = 'TRACE';
-    const HEAD = 'HEAD';
-    const DELETE = 'DELETE';
-    const CONNECT = 'CONNECT';
-
-    const HTTP = 'HTTP';
-    const HTTPS = 'HTTPS';
-
-    const VERSION_1_0 = '1.0';
-    const VERSION_1_1 = '1.1';
-    const VERSION_2_0 = '2.0';
+class Request extends AbstractMessage implements RequestInterface
+{
 
     private $method;
     private $path;
-    private $scheme;
-    private $schemeVersion;
-    private $headers;
-    private $body;
 
     /**
      * @param $method           The http verb
@@ -38,12 +18,10 @@ class Request {
      */
     public function __construct($method, $path, $scheme, $schemeVersion, array $headers = [], $body = '')
     {
+        parent::__construct($scheme, $schemeVersion, $headers, $body);
+
         $this->setMethod($method);
         $this->path = $path;
-        $this->setScheme($scheme);
-        $this->setSchemeVersion($schemeVersion);
-        $this->setHeaders($headers);
-        $this->body = $body;
     }
 
     private function setMethod($method)
@@ -70,94 +48,42 @@ class Request {
         $this->method = $method;
     }
 
-    private function setScheme($scheme)
+    private static function parsePrologue($message)
     {
-        $schemes = [
-            self::HTTP,
-            self::HTTPS,
-        ];
-
-        if(!in_array($scheme, $schemes)) {
-            throw new \InvalidArgumentException(sprintf('Scheme %s is not a supported scheme and must be one of %s.',
-                $scheme,
-                implode(',', $schemes)
-            ));
-        }
-
-        $this->scheme = $scheme;
-    }
-
-    private function setSchemeVersion($version)
-    {
-        $versions = [
-            self::VERSION_1_0,
-            self::VERSION_1_1,
-            self::VERSION_2_0,
-        ];
-
-        if(!in_array($version, $versions)) {
-            throw new \InvalidArgumentException(sprintf('SchemeVersion %s is not a supported schemeVersion and must be one of %s.',
-                $version,
-                implode(',', $versions)
-            ));
-        }
-
-        $this->schemeVersion = $version;
-    }
-
-    public static function createFromMessage($message)
-    {
-        if(!is_string($message) || empty($message)) {
-            throw new \InvalidArgumentException('HTTP message is not valid.');
-        }
-
-        //1. Parse prologue (first required line)
         $lines = explode(PHP_EOL, $message);
         $result = preg_match('#^(?P<method>[A-Z]{3,7}) (?P<path>.+) (?P<scheme>HTTPS?)\/(?P<version>[1-2]\.[0-2])$#', $lines[0], $matches);
         if(!$result) {
-            throw new \RuntimeException('HTTP message prologue is malformed');
+            throw new MalformedHttpMessageException($message, 'HTTP message prologue is malformed');
         }
 
-        array_shift($lines);
-
-        //2. Parse list of headers (if any)
-        $i = 0;
-        $headers = [];
-        while($line = $lines[$i]) {
-            $result = preg_match('#^([a-z][a-z0-9-]+)\: (.+)$#i', $line, $header);
-            if(!$result) {
-                throw new \RuntimeException(sprintf('Invalid header line at position %u: %s', $i+2, $line));
-            }
-
-            list(, $name, $value) = $header;
-
-            $headers[$name] = $value;
-            $i++;
-        }
-
-        //3. Parse content (if any)
-        $i++;
-        $body = '';
-        if(isset($lines[$i])) {
-            $body = $lines[$i];
-        }
-
-        //4. Construct new instance of Request class with atomic data
-        return new self($matches['method'], $matches['path'], $matches['scheme'], $matches['version'], $headers, $body);
+        return $matches;
     }
 
-    public function setHeaders(array $headers)
+    public final static function createFromMessage($message)
     {
-        foreach ($headers as $header => $value) {
-            $this->addHeader($header, $value);
+        if(!is_string($message) || empty($message)) {
+            throw new \MalformedHttpMessageException($message, 'HTTP message is not valid.');
         }
+
+        //1. Parse prologue (first required line)
+        $prologue = self::parsePrologue($message);
+
+        //2. Construct new instance of Request class with atomic data
+        return new self(
+            $prologue['method'],
+            $prologue['path'],
+            $prologue['scheme'],
+            $prologue['version'],
+            static::parseHeaders($message), //Parse list of headers (if any)
+            static ::parseBody($message) //Parse content (if any)
+        );
     }
 
-    public function getHeader($name)
+    protected function createPrologue()
     {
-        $name = strtolower($name);
-        return isset($this->headers[$name]) ? $this->headers[$name] : null;
+        return sprintf('%s %s %s/%s', $this->method, $this->path, $this->scheme, $this->schemeVersion );
     }
+
 
     public function getMethod()
     {
@@ -169,81 +95,5 @@ class Request {
         return $this->path;
     }
 
-    public function getScheme()
-    {
-        return $this->scheme;
-    }
 
-    public function getSchemeVersion()
-    {
-        return $this->schemeVersion;
-    }
-
-    public function getHeaders()
-    {
-        return $this->headers;
-    }
-
-    public function getBody()
-    {
-        return $this->body;
-    }
-
-    /**
-     * Add a new normalized header value ti he list of all headers.
-     * @param $header
-     * @param $value
-     *
-     * @throws \RuntimeException
-     */
-    private function addHeader($header, $value)
-    {
-        $header = strtolower($header);
-
-        if (isset($this->headers[$header])) {
-            throw  new \RuntimeException(sprintf(
-                'Header %s is already defined and cannot be set twice.',
-                $header
-            ));
-        }
-
-        $this->headers[$header] = $value;
-    }
-
-    public function getPrologue()
-    {
-        return sprintf('%s %s %s/%s', $this->method, $this->path, $this->scheme, $this->schemeVersion );
-    }
-
-
-    public function getMessage() {
-
-        $message = $this->getPrologue();
-
-        if(count($this->headers)) {
-            $message.= PHP_EOL;
-            foreach($this->headers as $header => $value) {
-                $message .= sprintf('%s: %s'.PHP_EOL, $header, $value);
-            }
-        }
-
-        $message .= PHP_EOL;
-        if($this->body) {
-            $message .= $this->body;
-        }
-
-        return $message;
-    }
-
-    /**
-     * @return string representation of a request instance.
-     *
-     * Alias of getMessage();
-     *
-     * @return string
-     */
-    public function __toString()
-    {
-        return $this->getMessage();
-    }
 }
