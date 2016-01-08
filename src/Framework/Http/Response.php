@@ -99,4 +99,9 @@ class Response extends AbstractMessage implements ResponseInterface, StreamableI
 
         echo $this->getBody();
     }
+
+    public static function createFromRequest(MessageInterface $request, $content, $statusCode, $headers = [])
+    {
+        return new self($statusCode, $request->getScheme(), $request->getSchemeVersion(), $headers, $content);
+    }
 }
